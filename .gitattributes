@@ -1,0 +1,15 @@
+# Force LF line endings for source files
+*.c     text eol=lf
+*.h     text eol=lf
+*.txt   text eol=lf
+
+# Optional: keep scripts consistent
+*.sh    text eol=lf
+*.bat   text eol=crlf
+
+# Prevent Git from messing with binaries
+*.bin   binary
+*.elf   binary
+*.hex   binary
+*.jpg   binary
+*.png   binary
