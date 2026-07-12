@@ -1,0 +1,155 @@
+#include <ESP8266WiFi.h>
+#include <ESP8266HTTPClient.h>
+#include <WiFiClientSecure.h>
+#include <ArduinoJson.h>
+#include <SoftwareSerial.h>
+
+const char* ssid = "XXXX";
+const char* password = "XXX";
+
+// SoftwareSerial(rx, tx)
+// We only transmit to STM32, so RX pin is unused here.
+// D5 = GPIO14 goes to STM32 UART RX.
+SoftwareSerial stmSerial(D6, D5);
+
+const char* weatherUrl =
+  "https://api.open-meteo.com/v1/forecast?"
+  "latitude=13.0878&longitude=80.2785"
+  "&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code"
+  "&timezone=auto";
+
+void connectWiFi() {
+  Serial.println();
+  Serial.print("Connecting to WiFi");
+
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password);
+
+  int tries = 0;
+  while (WiFi.status() != WL_CONNECTED && tries < 30) {
+    delay(1000);
+    Serial.print(".");
+    tries++;
+  }
+
+  Serial.println();
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("WiFi connected");
+    Serial.print("IP address: ");
+    Serial.println(WiFi.localIP());
+  } else {
+    Serial.println("WiFi connection failed");
+  }
+}
+
+void sendToSTM32(const char* time, float temperature, int humidity, float windSpeed, int weatherCode) {
+  // Format:
+  // time,temperature,humidity,windSpeed,weatherCode
+  // Example:
+  // 2026-07-05T13:00,37.1,35,19.0,3
+
+  stmSerial.print(time);
+  stmSerial.print(",");
+  stmSerial.print(temperature, 1);
+  stmSerial.print(",");
+  stmSerial.print(humidity);
+  stmSerial.print(",");
+  stmSerial.print(windSpeed, 1);
+  stmSerial.print(",");
+  stmSerial.println(weatherCode);
+}
+
+void setup() {
+  Serial.begin(115200);
+  stmSerial.begin(115200);
+
+  delay(2000);
+
+  Serial.println();
+  Serial.println("ESP8266 Weather Sender Started");
+
+  connectWiFi();
+}
+
+//void loop() {
+//  stmSerial.println("2026-07-05T13:00,37.1,35,19.0,3");
+//  Serial.println("Sent test line to STM32");
+//  delay(1000);
+//}
+
+void loop() {
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("WiFi disconnected. Reconnecting...");
+    connectWiFi();
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    WiFiClientSecure client;
+    client.setInsecure();
+
+    HTTPClient http;
+
+    Serial.println();
+    Serial.println("Requesting weather...");
+
+    if (!http.begin(client, weatherUrl)) {
+      Serial.println("HTTP begin failed");
+      delay(30000);
+      return;
+    }
+
+    int httpCode = http.GET();
+
+    Serial.print("HTTP code: ");
+    Serial.println(httpCode);
+
+    if (httpCode == HTTP_CODE_OK) {
+      String payload = http.getString();
+
+      JsonDocument doc;
+      DeserializationError error = deserializeJson(doc, payload);
+
+      if (error) {
+        Serial.print("JSON parse failed: ");
+        Serial.println(error.c_str());
+      } else {
+        const char* time = doc["current"]["time"] | "no time";
+        float temperature = doc["current"]["temperature_2m"] | -999.0;
+        int humidity = doc["current"]["relative_humidity_2m"] | -1;
+        float windSpeed = doc["current"]["wind_speed_10m"] | -999.0;
+        int weatherCode = doc["current"]["weather_code"] | -1;
+
+        Serial.println("Weather data:");
+        Serial.print("Time: ");
+        Serial.println(time);
+
+        Serial.print("Temperature: ");
+        Serial.print(temperature, 1);
+        Serial.println(" C");
+
+        Serial.print("Humidity: ");
+        Serial.print(humidity);
+        Serial.println(" %");
+
+        Serial.print("Wind speed: ");
+        Serial.print(windSpeed, 1);
+        Serial.println(" km/h");
+
+        Serial.print("Weather code: ");
+        Serial.println(weatherCode);
+
+        Serial.println("Sending to STM32...");
+        sendToSTM32(time, temperature, humidity, windSpeed, weatherCode);
+        Serial.println("Sent");
+      }
+    } else {
+      Serial.print("HTTP failed: ");
+      Serial.println(http.errorToString(httpCode));
+    }
+
+    http.end();
+  }
+
+  delay(60000);
+}

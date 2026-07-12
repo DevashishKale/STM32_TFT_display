@@ -1,4 +1,6 @@
-Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
+Core/Src/app.o: ../Core/Src/app.c ../Core/Inc/app.h \
+ ../Core/Inc/app_config.h \
+ D:/STM32Workspace/tft_display/LCD/Display/display.h \
  ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h \
  ../Core/Inc/stm32f4xx_hal_conf.h \
  ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h \
@@ -26,8 +28,12 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
  ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h \
  ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h \
  ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h \
- ../Core/Inc/app.h ../Core/Inc/app_config.h
-../Core/Inc/main.h:
+ ../Core/Inc/main.h ../Core/Inc/display_bringup.h \
+ D:/STM32Workspace/tft_display/LCD/ILI9341/ILI9341_Driver.h \
+ ../Core/Inc/stopwatch_display.h ../Core/Inc/weather_display.h
+../Core/Inc/app.h:
+../Core/Inc/app_config.h:
+D:/STM32Workspace/tft_display/LCD/Display/display.h:
 ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h:
 ../Core/Inc/stm32f4xx_hal_conf.h:
 ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h:
@@ -55,5 +61,8 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
 ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h:
 ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h:
 ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h:
-../Core/Inc/app.h:
-../Core/Inc/app_config.h:
+../Core/Inc/main.h:
+../Core/Inc/display_bringup.h:
+D:/STM32Workspace/tft_display/LCD/ILI9341/ILI9341_Driver.h:
+../Core/Inc/stopwatch_display.h:
+../Core/Inc/weather_display.h:

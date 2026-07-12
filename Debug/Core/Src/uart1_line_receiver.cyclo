@@ -1,0 +1,10 @@
+../Core/Src/uart1_line_receiver.c:22:6:Uart1LineReceiver_Init	1
+../Core/Src/uart1_line_receiver.c:39:6:Uart1LineReceiver_ReadLine	2
+../Core/Src/uart1_line_receiver.c:55:10:Uart1LineReceiver_GetByteCount	1
+../Core/Src/uart1_line_receiver.c:60:10:Uart1LineReceiver_GetLineCount	1
+../Core/Src/uart1_line_receiver.c:65:10:Uart1LineReceiver_GetOverflowCount	1
+../Core/Src/uart1_line_receiver.c:70:10:Uart1LineReceiver_GetErrorCount	1
+../Core/Src/uart1_line_receiver.c:75:9:Uart1LineReceiver_GetLastByte	1
+../Core/Src/uart1_line_receiver.c:80:19:Uart1LineReceiver_GetStartStatus	1
+../Core/Src/uart1_line_receiver.c:85:6:HAL_UART_RxCpltCallback	5
+../Core/Src/uart1_line_receiver.c:129:6:HAL_UART_ErrorCallback	2

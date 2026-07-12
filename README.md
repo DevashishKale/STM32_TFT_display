@@ -1,10 +1,11 @@
 # STM32 TFT Display Project
 
-This project drives an ILI9341-based TFT LCD from an STM32F446RE Nucleo board using STM32 HAL and SPI1. It includes a small display layer for drawing menus, text, icons, full-screen color images, and bring-up tests for validating the LCD wiring.
+This project drives an ILI9341-based TFT LCD from an STM32F446RE Nucleo board using STM32 HAL and SPI1. It includes app modes for a NodeMCU-fed time display, an ESP8266 weather display, display drawing demos, and bring-up tests for validating the LCD wiring.
 
 ## Hardware Used
 
 - MCU board: STM32F446RE Nucleo
+- Wi-Fi/UART board: NodeMCU ESP8266
 - Display: ILI9341 TFT LCD, 240 x 320 pixels
 - Interface: 4-wire SPI-style display control
 - Toolchain: STM32CubeIDE
@@ -15,10 +16,22 @@ This project drives an ILI9341-based TFT LCD from an STM32F446RE Nucleo board us
 ```text
 Core/
   Inc/
+    app.h                   Application lifecycle declarations
+    app_config.h            Normal/test mode selection
+    arduino code            NodeMCU ESP8266 sketch for fetching/sending data
+    display_bringup.h       Display bring-up test declarations
     main.h                  GPIO labels and project-wide declarations
+    stopwatch_display.h     UART time display declarations
+    uart1_line_receiver.h   Interrupt-driven USART1 line receiver declarations
+    weather_display.h       ESP8266 weather display declarations
   Src/
-    main.c                  Application entry point and bring-up tests
-    stm32f4xx_hal_msp.c     SPI1 and USART2 pin alternate-function setup
+    app.c                   Project initialization and main loop hook
+    display_bringup.c       Optional LCD wiring/display test modes
+    main.c                  STM32Cube-generated entry point and hardware init
+    stm32f4xx_hal_msp.c     SPI1, USART1, and USART2 pin alternate-function setup
+    stopwatch_display.c     Large TFT time display from NodeMCU UART data
+    uart1_line_receiver.c   Newline-terminated USART1 receive helper
+    weather_display.c       UART weather receiver and TFT weather screen
 
 LCD/
   Display/
@@ -38,34 +51,6 @@ LCD/
 
 ## Board Connections
 
-The TFT is connected to the STM32F446RE Nucleo through SPI1 plus three control pins. The most important connections are `SCK`, `MOSI`, `CS`, `DC`, `RESET`, `3.3V`, and `GND`.
-
-### Power
-
-| TFT Pin | Connect To | Notes |
-|---|---|---|
-| `VCC` | Nucleo `3V3` | Use 3.3 V logic power for the display module. |
-| `GND` | Nucleo `GND` | The TFT and STM32 must share common ground. |
-| `LED`, `BL`, or `BLK` | `3V3` or module backlight supply | Depends on your TFT module. Some modules have onboard current limiting; others need a current-limited backlight supply. |
-
-### SPI Data Lines
-
-| TFT Pin | STM32 Pin | Nucleo Header | Function |
-|---|---:|---|---|
-| `SCK`, `CLK`, or `SCL` | `PA5` | `D13` | SPI1 clock |
-| `MOSI`, `SDA`, `SDI`, or `DIN` | `PA7` | `D11` | SPI data from STM32 to TFT |
-| `MISO`, `SDO`, or `DO` | `PA6` | `D12` | Optional readback line; many ILI9341 display-only examples do not use it |
-
-### TFT Control Lines
-
-| TFT Pin | STM32 Pin | Firmware Name | Purpose |
-|---|---:|---|---|
-| `CS`, `LCD_CS`, or `T_CS` | `PA4` | `CS_Pin` | Selects the TFT before commands/data are sent |
-| `DC`, `RS`, or `A0` | `PC4` | `DC_Pin` | Chooses command mode or pixel/data mode |
-| `RESET`, `RST`, or `RES` | `PC5` | `RESET_Pin` | Resets the ILI9341 controller |
-
-### Quick Wiring Checklist
-
 ```text
 TFT VCC    -> Nucleo 3V3
 TFT GND    -> Nucleo GND
@@ -78,49 +63,61 @@ TFT RESET  -> PC5
 TFT LED/BL -> 3V3 or suitable backlight supply
 ```
 
-Important notes:
+## Project Photos
 
-- All grounds must be common.
-- The ILI9341 logic pins should be driven at 3.3 V.
-- `PA6 / SPI1_MISO` is configured by CubeMX, but the current drawing code only writes to the display.
-- `PC4` and `PC5` are listed by STM32 port/pin name because they may be easiest to access from the Nucleo Morpho headers.
+Time fetched by the NodeMCU and sent over UART, then displayed on the TFT:
 
-## Project Photo
+![NodeMCU time display on TFT](docs/images/time_display.jpg)
+
+TFT image/display bring-up output:
 
 ![TFT display output](docs/images/tft_output.jpg)
 
-## Pin Configuration in Firmware
+## ESP8266 / NodeMCU UART
 
-The pins are named in `Core/Inc/main.h`:
+The NodeMCU ESP8266 communicates with the STM32 over `USART1`. Normal project mode displays a large `HH:MM` time string received from the NodeMCU. Weather mode displays weather data fetched by the ESP8266 and sent to the STM32.
 
-```c
-#define CS_Pin GPIO_PIN_4
-#define CS_GPIO_Port GPIOA
+Wire the ESP8266 UART to STM32 `USART1`:
 
-#define DC_Pin GPIO_PIN_4
-#define DC_GPIO_Port GPIOC
-
-#define RESET_Pin GPIO_PIN_5
-#define RESET_GPIO_Port GPIOC
+```text
+NodeMCU ESP8266        STM32F446RE Nucleo
+-----------------------------------------
+D5 / GPIO14   ------>  PA10 / USART1_RX
+D6 / GPIO12   <------  PA9  / USART1_TX
+GND           ------>  GND
 ```
 
-SPI1 alternate-function pins are configured in `Core/Src/stm32f4xx_hal_msp.c`:
+The serial settings are:
 
-```c
-PA5 -> SPI1_SCK
-PA6 -> SPI1_MISO
-PA7 -> SPI1_MOSI
+```text
+115200 baud, 8 data bits, no parity, 1 stop bit
 ```
 
-SPI1 is initialized as:
+For `APP_MODE_PROJECT`, the STM32 expects one newline-terminated time string:
 
-- Master mode
-- 8-bit data
-- CPOL low
-- CPHA first edge
-- Software NSS
-- Prescaler 16
-- MSB first
+```text
+HH:MM
+```
+
+Example:
+
+```text
+08:36
+```
+
+For `APP_MODE_WEATHER`, the STM32 expects one newline-terminated CSV line:
+
+```text
+time,temperature,humidity,windSpeed,weatherCode
+```
+
+Example:
+
+```text
+2026-07-05T13:00,37.1,35,19.0,3
+```
+
+The shared UART receiver lives in `Core/Src/uart1_line_receiver.c`. The time display lives in `Core/Src/stopwatch_display.c`, and the weather screen lives in `Core/Src/weather_display.c`.
 
 ## Display Driver Overview
 
@@ -179,27 +176,33 @@ ILI9341_Draw_Pixel(x, y, pixels);
 `Core/Src/main.c` contains a compile-time switch:
 
 ```c
-#define DISPLAY_BRINGUP_TEST 2
+/* #define APP_MODE APP_MODE_DISPLAY_EXPERIMENT */
+#ifndef APP_MODE
+#define APP_MODE APP_MODE_PROJECT
+#endif
 ```
 
 Available modes:
 
 | Value | Mode |
-|---:|---|
-| `0` | Normal LCD demo menu |
-| `1` | Visible heartbeat/reset test |
-| `2` | Minimal LCD test area for display experiments |
-| `3` | Bit-banged SPI LCD color cycle |
-| `4` | Hardware SPI LCD color cycle |
+|---|---|
+| `APP_MODE_PROJECT` | Normal project mode: displays `HH:MM` time from the NodeMCU on the TFT |
+| `APP_MODE_RESET_HEARTBEAT_TEST` | Visible heartbeat/reset test |
+| `APP_MODE_DISPLAY_EXPERIMENT` | Minimal LCD test area for display experiments |
+| `APP_MODE_BITBANG_SPI_COLOR_TEST` | Bit-banged SPI LCD color cycle |
+| `APP_MODE_HARDWARE_SPI_COLOR_TEST` | Hardware SPI LCD color cycle |
+| `APP_MODE_WEATHER` | Weather display mode: parses ESP8266 weather CSV and draws time, date, temperature, humidity, wind, and weather summary |
 
-Mode `2` is currently used for experimenting with the display functions. Example calls you can enable there:
+The test implementation lives in `Core/Src/display_bringup.c`, keeping most test code out of `Core/Src/main.c`. `APP_MODE_DISPLAY_EXPERIMENT` is the easiest place to temporarily try display functions:
 
 ```c
 Display_BMW_Picture();
 Display_Text();
 Display_Menu();
-Display_Back_Icon(0, 200);
+Display_Back_Icon(200, 200);
 ```
+
+For normal project work, leave `APP_MODE` undefined or set it to `APP_MODE_PROJECT`. To run the weather screen instead, set `APP_MODE` to `APP_MODE_WEATHER`.
 
 ## Image and Icon Data
 
@@ -221,53 +224,6 @@ Instead, keep icon drawing inside `display.c` or expose wrapper functions such a
 Display_Back_Icon(0, 200);
 ```
 
-## Building
-
-Open the project in STM32CubeIDE and build the `Debug` configuration.
-
-Typical build command generated by CubeIDE:
-
-```text
-make -j8 all
-```
-
-The output firmware is generated under:
-
-```text
-Debug/tft_display.elf
-```
-
-## Flashing and Running
-
-1. Connect the STM32F446RE Nucleo board to your PC over USB.
-2. Connect the TFT display using the wiring table above.
-3. Open the project in STM32CubeIDE.
-4. Select the `Debug` configuration.
-5. Build the project.
-6. Flash or debug the firmware from STM32CubeIDE.
-
-## Troubleshooting
-
-If the display stays white or black:
-
-- Check 3.3 V and GND first.
-- Confirm `CS`, `DC`, and `RESET` are connected to PA4, PC4, and PC5.
-- Confirm SCK and MOSI are connected to PA5 and PA7.
-- Try `DISPLAY_BRINGUP_TEST == 4` for a simple hardware-SPI color-cycle test.
-- Try `DISPLAY_BRINGUP_TEST == 1` to verify reset pin activity.
-
-If the image is shifted, clipped, or rotated:
-
-- Check the selected `ILI9341_Set_Rotation()` value.
-- Make sure the image dimensions match the rotation:
-  - 240 x 320 for portrait
-  - 320 x 240 for landscape
-
-If the linker reports multiple definitions for an icon or image:
-
-- Do not include that asset header in multiple `.c` files.
-- Prefer drawing assets from `display.c`, or convert asset headers to `extern` declarations plus one `.c` definition file.
-
 ## Current Status
 
-The project can initialize the ILI9341 display, draw primitive shapes and text, render menu icons, and draw full-screen RGB565 images in portrait or landscape orientation.
+The project can initialize the ILI9341 display, receive newline-terminated UART data from a NodeMCU ESP8266, display a large `HH:MM` time screen, display fetched weather data, draw primitive shapes and text, render menu icons, and draw full-screen RGB565 images in portrait or landscape orientation.
