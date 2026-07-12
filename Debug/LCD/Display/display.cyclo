@@ -1,8 +1,0 @@
-../LCD/Display/display.c:21:6:Display_Round_Icon_40x40	3
-../LCD/Display/display.c:37:6:Display_Square_Icon_40x40	3
-../LCD/Display/display.c:51:6:Display_Back_Icon	1
-../LCD/Display/display.c:56:6:Display_Menu	3
-../LCD/Display/display.c:105:6:Display_Picture	3
-../LCD/Display/display.c:122:6:Display_Text	1
-../LCD/Display/display.c:144:6:Display_Color_Picture	3
-../LCD/Display/display.c:157:6:Display_BMW_Picture	3
